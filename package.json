@@ -24,7 +24,7 @@
         "ethers": "^5.7.2",
         "hardhat": "^2.22.18"
     },
-    "author": "Your Name",
+    "author": "senseit",
     "license": "MIT",
     "browserslist": {
         "production": [
