@@ -4,9 +4,9 @@ import TodoABI from "./abis/Todo.json";
 import MyTokenABI from "./abis/MyToken.json";
 import StakingABI from "./abis/Staking.json";
 
-const todoAddress = "YOUR_TODO_CONTRACT_ADDRESS";  // Replace with deployed address
-const tokenAddress = "YOUR_TOKEN_CONTRACT_ADDRESS";  // Replace with deployed address
-const stakingAddress = "YOUR_STAKING_CONTRACT_ADDRESS";  // Replace with deployed address
+const todoAddress = "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707";  // Replace with deployed address
+const tokenAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9";  // Replace with deployed address
+const stakingAddress = "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9";  // Replace with deployed address
 
 const App = () => {
   const [account, setAccount] = useState(null);
@@ -17,6 +17,7 @@ const App = () => {
   const [todoContract, setTodoContract] = useState(null);
   const [tokenContract, setTokenContract] = useState(null);
   const [stakingContract, setStakingContract] = useState(null);
+  const [loading, setLoading] = useState(false);  // Loading state for transaction feedback
 
   useEffect(() => {
     if (window.ethereum) {
@@ -42,8 +43,14 @@ const App = () => {
 
   const addTask = async () => {
     if (newTask && todoContract) {
-      await todoContract.addTask(newTask);
-      fetchTasks();
+      setLoading(true);  // Set loading to true when transaction is sent
+      try {
+        await todoContract.addTask(newTask);
+        fetchTasks();
+      } catch (error) {
+        console.error("Error adding task:", error);
+      }
+      setLoading(false);  // Set loading to false after transaction is done
     }
   };
 
@@ -56,27 +63,51 @@ const App = () => {
 
   const completeTask = async (taskId) => {
     if (todoContract) {
-      await todoContract.completeTask(taskId);
-      fetchTasks();
+      setLoading(true);  // Set loading to true when transaction is sent
+      try {
+        await todoContract.completeTask(taskId);
+        fetchTasks();
+      } catch (error) {
+        console.error("Error completing task:", error);
+      }
+      setLoading(false);  // Set loading to false after transaction is done
     }
   };
 
   const stakeTokens = async (amount) => {
     if (stakingContract && tokenContract) {
-      await tokenContract.approve(stakingAddress, amount);
-      await stakingContract.stake(amount);
+      setLoading(true);  // Set loading to true when transaction is sent
+      try {
+        await tokenContract.approve(stakingAddress, amount);
+        await stakingContract.stake(amount);
+      } catch (error) {
+        console.error("Error staking tokens:", error);
+      }
+      setLoading(false);  // Set loading to false after transaction is done
     }
   };
 
   const withdrawTokens = async (amount) => {
     if (stakingContract) {
-      await stakingContract.withdraw(amount);
+      setLoading(true);  // Set loading to true when transaction is sent
+      try {
+        await stakingContract.withdraw(amount);
+      } catch (error) {
+        console.error("Error withdrawing tokens:", error);
+      }
+      setLoading(false);  // Set loading to false after transaction is done
     }
   };
 
   const claimReward = async () => {
     if (stakingContract) {
-      await stakingContract.claimReward();
+      setLoading(true);  // Set loading to true when transaction is sent
+      try {
+        await stakingContract.claimReward();
+      } catch (error) {
+        console.error("Error claiming reward:", error);
+      }
+      setLoading(false);  // Set loading to false after transaction is done
     }
   };
 
@@ -84,7 +115,22 @@ const App = () => {
     if (todoContract) {
       fetchTasks();
     }
-  }, [todoContract]);
+
+    // Listen for staking contract events (e.g., Withdrawals)
+    if (stakingContract) {
+      stakingContract.on("Withdrawal", (amount, when) => {
+        console.log(`Withdrawn ${amount} at ${when}`);
+        alert(`You have withdrawn ${ethers.utils.formatUnits(amount, 18)} tokens at ${new Date(when * 1000)}`);
+      });
+    }
+
+    return () => {
+      // Cleanup the event listener
+      if (stakingContract) {
+        stakingContract.off("Withdrawal");
+      }
+    };
+  }, [todoContract, stakingContract]);
 
   return (
     <div>
@@ -98,20 +144,30 @@ const App = () => {
         onChange={(e) => setNewTask(e.target.value)}
         placeholder="Enter task description"
       />
-      <button onClick={addTask}>Add Task</button>
+      <button onClick={addTask} disabled={loading}>
+        {loading ? "Adding Task..." : "Add Task"}
+      </button>
 
       <h2>Tasks</h2>
       {tasks.map((task) => (
         <div key={task.id}>
           <p>{task.description} - {task.isCompleted ? "Completed" : "Pending"}</p>
-          {!task.isCompleted && <button onClick={() => completeTask(task.id)}>Complete</button>}
+          {!task.isCompleted && <button onClick={() => completeTask(task.id)} disabled={loading}>Complete</button>}
         </div>
       ))}
 
       <h2>Token Staking</h2>
-      <button onClick={() => stakeTokens(10)}>Stake 10 Tokens</button>
-      <button onClick={() => withdrawTokens(10)}>Withdraw 10 Tokens</button>
-      <button onClick={claimReward}>Claim Reward</button>
+      <button onClick={() => stakeTokens(10)} disabled={loading}>
+        {loading ? "Staking..." : "Stake 10 Tokens"}
+      </button>
+      <button onClick={() => withdrawTokens(10)} disabled={loading}>
+        {loading ? "Withdrawing..." : "Withdraw 10 Tokens"}
+      </button>
+      <button onClick={claimReward} disabled={loading}>
+        {loading ? "Claiming Reward..." : "Claim Reward"}
+      </button>
+
+      {loading && <p>Transaction in progress...</p>}
     </div>
   );
 };
